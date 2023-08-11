@@ -83,7 +83,61 @@ class AbstractModelOutput(ABC):
         """
         ...
 
+class pNTKModelOutput(AbstractModelOutput):
+    """ The modeloutput function with be the sum of the neural network logits, see Mohamadi et. al. 2023
+        for the definition of the pNTK. The neural network should NOT end in a softmax function for this
+        definition. See https://proceedings.mlr.press/v202/mohamadi23a/mohamadi23a.pdf for details.
+    """
 
+    def __init__(self, temperature: float = 1.) -> None:
+        """
+        Args:
+            temperature (float, optional): Temperature to use inside the
+            softmax for the out-to-loss function. Defaults to 1.
+        """
+        super().__init__()
+
+    @staticmethod
+    def get_output(model: Module,
+                   weights: Iterable[Tensor],
+                   buffers: Iterable[Tensor],
+                   image: Tensor,
+                   label: Tensor) -> Tensor:
+        """ For a given input :math:`z=(x,)` and model parameters :math:`\\theta`,
+        let :math:`f(x, \\theta)` be the logit vector of the neural network with
+        C number of outputs (e.g., representing C classes). this function
+        implements the model output function as:
+
+        .. math::
+
+            \\sum_{i=1}^{C} f(x, \\theta)
+
+        It uses functional models from torch.func (previously functorch) to make
+        the per-sample gradient computations (much) faster. For more details on
+        what functional models are, and how to use them, please refer to
+        https://pytorch.org/docs/stable/func.html and
+        https://pytorch.org/functorch/stable/notebooks/per_sample_grads.html.
+
+        Args:
+            model (torch.nn.Module):
+                torch model
+            weights (Iterable[Tensor]):
+                functorch model weights
+            buffers (Iterable[Tensor]):
+                functorch model buffers
+            image (Tensor):
+                input image, should not have batch dimension
+            label (Tensor):
+                input label, should not have batch dimension. Is unused in this computation.
+
+        Returns:
+            Tensor:
+                model output for the given image :math:`x` and
+                weights & buffers :math:`\\theta`.
+        """
+        logits = ch.func.functional_call(model, (weights, buffers), image.unsqueeze(0))
+        return logits.sum()
+    
 class ImageClassificationModelOutput(AbstractModelOutput):
     """ Margin for (multiclass) image classification. See Section 3.3 of `our
     paper <https://arxiv.org/abs/2303.14186>`_ for more details.
@@ -409,6 +463,7 @@ class TextClassificationModelOutput(AbstractModelOutput):
 
 
 TASK_TO_MODELOUT = {
+    'pNTK':pNTKModelOutput,
     'image_classification': ImageClassificationModelOutput,
     'clip': CLIPModelOutput,
     'text_classification': TextClassificationModelOutput,
