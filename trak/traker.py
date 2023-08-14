@@ -1,4 +1,4 @@
-from .modelout_functions import AbstractModelOutput, TASK_TO_MODELOUT
+from .modelout_functions import AbstractModelOutput, TASK_TO_MODELOUT, pNTKModelOutput, trNTKModelOutput
 from .projectors import ProjectionType, AbstractProjector, CudaProjector, BasicProjector
 from .gradient_computers import FunctionalGradientComputer,\
                                 AbstractGradientComputer
@@ -27,6 +27,7 @@ class TRAKer():
                  model: torch.nn.Module,
                  task: Union[AbstractModelOutput, str],
                  train_set_size: int,
+                 num_classes: Optional[int] = None,
                  save_dir: str = './trak_results',
                  load_from_save_dir: bool = True,
                  device: Union[str, torch.device] = 'cuda',
@@ -36,7 +37,7 @@ class TRAKer():
                  score_computer: Optional[AbstractScoreComputer] = None,
                  proj_dim: int = 2048,
                  logging_level=logging.INFO,
-                 use_half_precision: bool = True,
+                 use_half_precision: bool = False,
                  proj_max_batch_size: int = 32,
                  ) -> None:
         """
@@ -98,6 +99,7 @@ class TRAKer():
         self.train_set_size = train_set_size
         self.device = device
         self.dtype = ch.float16 if use_half_precision else ch.float32
+        self.num_classes = num_classes
 
         logging.basicConfig()
         self.logger = logging.getLogger('TRAK')
@@ -132,6 +134,7 @@ class TRAKer():
             'JL dimension': self.proj_dim,
             'JL matrix type': self.projector.proj_type,
             'train set size': self.train_set_size,
+            'number classes': self.num_classes,
         }
 
         if saver is None:
@@ -139,6 +142,7 @@ class TRAKer():
         self.saver = saver(save_dir=self.save_dir,
                            metadata=metadata,
                            train_set_size=self.train_set_size,
+                           number_classes = self.num_classes,
                            proj_dim=self.proj_dim,
                            load_from_save_dir=self.load_from_save_dir,
                            logging_level=logging_level,
@@ -218,7 +222,8 @@ class TRAKer():
     def featurize(self,
                   batch: Iterable[Tensor],
                   inds: Optional[Iterable[int]] = None,
-                  num_samples: Optional[int] = None
+                  num_samples: Optional[int] = None,
+                  
                   ) -> None:
         """ Creates TRAK features for the given batch by computing the gradient
         of the model output function and projecting it. In the notation of the
@@ -261,14 +266,25 @@ class TRAKer():
         if len(inds) == 0:
             self.logger.debug('All samples in batch already featurized.')
             return 0
+        
+        if isinstance(self.task,trNTKModelOutput):
+            for c in range(batch[0].shape[1]): #number of classes
+                grads = self.gradient_computer.compute_per_sample_grad(batch,c)
+                grads = self.projector.project(grads, model_id=self.saver.current_model_id)
+                grads /= self.normalize_factor
+                self.saver.current_store[f'grads_{c}'][inds] = grads.to(self.dtype).cpu().clone().detach()
+        
+        else:
+            grads = self.gradient_computer.compute_per_sample_grad(batch=batch)
+            grads = self.projector.project(grads, model_id=self.saver.current_model_id)
+            grads /= self.normalize_factor
+            self.saver.current_store['grads'][inds] = grads.to(self.dtype).cpu().clone().detach()
+        
+        if not(isinstance(self.task, (pNTKModelOutput,trNTKModelOutput))): #TODO: need this logic working.
+            loss_grads = self.gradient_computer.compute_loss_grad(batch)
+            self.saver.current_store['out_to_loss'][inds] = loss_grads.to(self.dtype).cpu().clone().detach()
 
-        grads = self.gradient_computer.compute_per_sample_grad(batch=batch)
-        grads = self.projector.project(grads, model_id=self.saver.current_model_id)
-        grads /= self.normalize_factor
-        self.saver.current_store['grads'][inds] = grads.to(self.dtype).cpu().clone().detach()
-
-        loss_grads = self.gradient_computer.compute_loss_grad(batch)
-        self.saver.current_store['out_to_loss'][inds] = loss_grads.to(self.dtype).cpu().clone().detach()
+        
 
         self.saver.current_store['is_featurized'][inds] = 1
         self.saver.serialize_current_model_id_metadata()

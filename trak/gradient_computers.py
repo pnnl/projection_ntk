@@ -50,7 +50,7 @@ class AbstractGradientComputer(ABC):
         ...
 
     @abstractmethod
-    def compute_per_sample_grad(self, batch: Iterable[Tensor]) -> Tensor:
+    def compute_per_sample_grad(self, batch: Iterable[Tensor], c: Optional[int]) -> Tensor:
         ...
 
     @abstractmethod
@@ -81,7 +81,7 @@ class FunctionalGradientComputer(AbstractGradientComputer):
         self.func_weights = dict(model.named_parameters())
         self.func_buffers = dict(model.named_buffers())
 
-    def compute_per_sample_grad(self, batch: Iterable[Tensor]) -> Tensor:
+    def compute_per_sample_grad(self, batch: Iterable[Tensor], c: Optional[int]) -> Tensor:
         """ Uses functorch's :code:`vmap` (see
         https://pytorch.org/functorch/stable/generated/functorch.vmap.html#functorch.vmap
         for more details) to vectorize the computations of per-sample gradients.
@@ -100,21 +100,40 @@ class FunctionalGradientComputer(AbstractGradientComputer):
 
         """
         # taking the gradient wrt weights (second argument of get_output, hence argnums=1)
-        grads_loss = torch.func.grad(self.modelout_fn.get_output, has_aux=False, argnums=1)
-        # map over batch dimensions (hence 0 for each batch dimension, and None for model params)
-        grads = torch.empty(size=(batch[0].shape[0], self.num_params),
-                            dtype=batch[0].dtype,
-                            device=batch[0].device)
+        if (c is None):
+            grads_loss = torch.func.grad(self.modelout_fn.get_output, has_aux=False, argnums=1)
+            # map over batch dimensions (hence 0 for each batch dimension, and None for model params)
+            grads = torch.empty(size=(batch[0].shape[0], self.num_params),
+                                dtype=batch[0].dtype,
+                                device=batch[0].device)
 
-        vectorize(torch.func.vmap(grads_loss,
-                                  in_dims=(None, None, None, *([0] * len(batch))),
-                                  randomness='different')(self.model,
-                                                          self.func_weights,
-                                                          self.func_buffers,
-                                                          *batch),
-                  grads)
+            vectorize(torch.func.vmap(grads_loss,
+                                    in_dims=(None, None, None, *([0] * len(batch))),
+                                    randomness='different')(self.model,
+                                                            self.func_weights,
+                                                            self.func_buffers,
+                                                            *batch),
+                    grads)
 
-        return grads
+            return grads
+        
+        else:# if trNTK
+            grads_loss = torch.func.grad(self.modelout_fn.get_output, has_aux=False, argnums=1) #index into class c.
+            # map over batch dimensions (hence 0 for each batch dimension, and None for model params)
+            grads = torch.empty(size=(batch[0].shape[0], self.num_params),
+                                dtype=batch[0].dtype,
+                                device=batch[0].device)
+
+            vectorize(torch.func.vmap(grads_loss,
+                                    in_dims=(None, None, None, None, *([0] * len(batch))),
+                                    randomness='different')(self.model,
+                                                            self.func_weights,
+                                                            self.func_buffers,
+                                                            c,
+                                                            *batch),
+                    grads)
+
+            return grads
 
     def compute_loss_grad(self, batch: Iterable[Tensor]) -> Tensor:
         """Computes the gradient of the loss with respect to the model output

@@ -27,6 +27,7 @@ class AbstractSaver(ABC):
                  metadata: Iterable,
                  load_from_save_dir: bool,
                  logging_level: int,
+                 number_classes: Optional[int],
                  use_half_precision: bool) -> None:
         """ Creates the save directory if it doesn't already exist.
         If the save directory already exists, it validates that the current
@@ -55,6 +56,7 @@ class AbstractSaver(ABC):
         self.save_dir = Path(save_dir).resolve()
         self.load_from_save_dir = load_from_save_dir
         self.use_half_precision = use_half_precision
+        self.number_classes = number_classes
 
         os.makedirs(self.save_dir, exist_ok=True)
         os.makedirs(self.save_dir.joinpath('scores'), exist_ok=True)
@@ -132,6 +134,9 @@ class AbstractSaver(ABC):
             'out_to_loss': None,
             'features': None,
         }
+
+        for c in range(self.number_classes):
+            self.current_store[f'grads_{c}'] = None
 
     @abstractmethod
     def register_model_id(self, model_id: int) -> None:
@@ -221,12 +226,13 @@ class MmapSaver(AbstractSaver):
     into memory.
 
     """
-    def __init__(self, save_dir, metadata, train_set_size, proj_dim,
+    def __init__(self, save_dir, metadata, number_classes, train_set_size, proj_dim,
                  load_from_save_dir, logging_level, use_half_precision) -> None:
         super().__init__(save_dir=save_dir,
                          metadata=metadata,
                          load_from_save_dir=load_from_save_dir,
                          logging_level=logging_level,
+                         number_classes=number_classes,
                          use_half_precision=use_half_precision)
         self.train_set_size = train_set_size
         self.proj_dim = proj_dim
@@ -351,20 +357,42 @@ class MmapSaver(AbstractSaver):
         prefix = self.save_dir.joinpath(str(self.current_model_id))
 
         if exp_name is None:
-            to_load = {
-                'grads': (prefix.joinpath('grads.mmap'),
-                          (self.train_set_size, self.proj_dim),
-                          None),
-                'out_to_loss': (prefix.joinpath('out_to_loss.mmap'),
-                                (self.train_set_size, 1),
+
+            if self.number_classes is None:
+                to_load = {
+                    'grads': (prefix.joinpath('grads.mmap'),
+                            (self.train_set_size, self.proj_dim),
+                            None),
+                    'out_to_loss': (prefix.joinpath('out_to_loss.mmap'),
+                                    (self.train_set_size, 1),
+                                    None),
+                    'features': (prefix.joinpath('features.mmap'),
+                                (self.train_set_size, self.proj_dim),
                                 None),
-                'features': (prefix.joinpath('features.mmap'),
-                             (self.train_set_size, self.proj_dim),
-                             None),
-                'is_featurized': (prefix.joinpath('_is_featurized.mmap'),
-                                  (self.train_set_size, 1),
-                                  np.int32),
-            }
+                    'is_featurized': (prefix.joinpath('_is_featurized.mmap'),
+                                    (self.train_set_size, 1),
+                                    np.int32),
+                }
+            else:
+                to_load = {
+                    'grads': (prefix.joinpath('grads.mmap'),
+                            (self.train_set_size, self.proj_dim),
+                            None),
+                    'out_to_loss': (prefix.joinpath('out_to_loss.mmap'),
+                                    (self.train_set_size, 1),
+                                    None),
+                    'features': (prefix.joinpath('features.mmap'),
+                                (self.train_set_size, self.proj_dim),
+                                None),
+                    'is_featurized': (prefix.joinpath('_is_featurized.mmap'),
+                                    (self.train_set_size, 1),
+                                    np.int32),
+                }
+                for c in range(self.number_classes):
+                    to_load[f'grads_{c}'] = (prefix.joinpath('grads.mmap'),
+                            (self.train_set_size, self.proj_dim),
+                            None)
+
         else:
             to_load = {
                 f'{exp_name}_grads': (prefix.joinpath(f'{exp_name}_grads.mmap'),
