@@ -134,9 +134,9 @@ class AbstractSaver(ABC):
             'out_to_loss': None,
             'features': None,
         }
-
-        for c in range(self.number_classes):
-            self.current_store[f'grads_{c}'] = None
+        if not(self.number_classes is None):
+            for c in range(self.number_classes):
+                self.current_store[f'grads_{c}'] = None
 
     @abstractmethod
     def register_model_id(self, model_id: int) -> None:
@@ -389,7 +389,7 @@ class MmapSaver(AbstractSaver):
                                     np.int32),
                 }
                 for c in range(self.number_classes):
-                    to_load[f'grads_{c}'] = (prefix.joinpath('grads.mmap'),
+                    to_load[f'grads_{c}'] = (prefix.joinpath(f'grads_{c}.mmap'),
                             (self.train_set_size, self.proj_dim),
                             None)
 

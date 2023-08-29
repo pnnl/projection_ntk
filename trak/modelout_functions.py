@@ -579,9 +579,200 @@ class TextClassificationModelOutput(AbstractModelOutput):
         return (1 - ps).clone().detach().unsqueeze(-1)
 
 
+class TextpNTKModelOutput(AbstractModelOutput):
+    """ The modeloutput function with be the sum of the neural network logits, see Mohamadi et. al. 2023
+        for the definition of the pNTK. The neural network should NOT end in a softmax function for this
+        definition. See https://proceedings.mlr.press/v202/mohamadi23a/mohamadi23a.pdf for details.
+    """
+
+    def __init__(self, temperature: float = 1.) -> None:
+        """
+        Args:
+            temperature (float, optional): Temperature to use inside the
+            softmax for the out-to-loss function. Defaults to 1.
+        """
+        super().__init__()
+        self.softmax = ch.nn.Softmax(-1)
+        self.loss_temperature = temperature
+
+    @staticmethod
+    def get_output(model,
+                   weights: Iterable[Tensor],
+                   buffers: Iterable[Tensor],
+                   input_id: Tensor,
+                   token_type_id: Tensor,
+                   attention_mask: Tensor,
+                   label: Tensor,
+                   ) -> Tensor:
+
+        """ For a given input :math:`z=(x,)` and model parameters :math:`\\theta`,
+        let :math:`f(x, \\theta)` be the logit vector of the neural network with
+        C number of outputs (e.g., representing C classes). this function
+        implements the model output function as:
+
+        .. math::
+
+            \\sum_{i=1}^{C} f(x, \\theta)
+
+        It uses functional models from torch.func (previously functorch) to make
+        the per-sample gradient computations (much) faster. For more details on
+        what functional models are, and how to use them, please refer to
+        https://pytorch.org/docs/stable/func.html and
+        https://pytorch.org/functorch/stable/notebooks/per_sample_grads.html.
+
+        Args:
+            model (torch.nn.Module):
+                torch model
+            weights (Iterable[Tensor]):
+                functorch model weights
+            buffers (Iterable[Tensor]):
+                functorch model buffers
+            image (Tensor):
+                input image, should not have batch dimension
+            label (Tensor):
+                input label, should not have batch dimension. Is unused in this computation.
+
+        Returns:
+            Tensor:
+                model output for the given image :math:`x` and
+                weights & buffers :math:`\\theta`.
+        """
+        logits = ch.func.functional_call(model,
+                                    (weights, buffers),
+                                    args=(input_id.unsqueeze(0),
+                                        token_type_id.unsqueeze(0),
+                                        attention_mask.unsqueeze(0)))[0][0]
+        return logits.sum()
+    
+    def get_out_to_loss_grad(self, model, weights, buffers, batch: Iterable[Tensor]) -> Tensor:
+        """ Computes the (reweighting term Q in the paper)
+
+        Args:
+            model (torch.nn.Module):
+                torch model
+            weights (Iterable[Tensor]):
+                functorch model weights
+            buffers (Iterable[Tensor]):
+                functorch model buffers
+            batch (Iterable[Tensor]):
+                input batch
+
+        Returns:
+            Tensor:
+                out-to-loss (reweighting term) for the input batch
+        """
+        images, labels = batch
+        raise NotImplementedError('get_out_to_loss_grad not implemented for pNTK task; no Q matrix equivalent')
+        #warning, this is nonsensical for the pNTK. 
+        #logits = ch.func.functional_call(model, (weights, buffers), images)
+        # here we are directly implementing the gradient instead of relying on autodiff to do
+        # that for us
+        #ps = self.softmax(logits / self.loss_temperature)[ch.arange(logits.size(0)), labels]
+        #return (1 - ps).clone().detach().unsqueeze(-1)
+
+
+class TexttrNTKModelOutput(AbstractModelOutput):
+    """ The modeloutput function will be the a vector representing the neural network's logits. The
+        gradient computer will be called in series on each component of the vector to create individual
+        grads for each logit, that can be concatenated together. This concatenation is equivalent to 
+        performing the gram matrix product on each indidual projected feature matrix and summing the
+        result. This creates number of classes C times more memory than the pNTK. It is called the
+        trNTK because it can be thought of as the trace over the block-matrices of the eNTK. The
+        neural network should NOT end in a softmax function for this definition.
+    """
+
+    def __init__(self, temperature: float = 1.) -> None:
+        """
+        Args:
+            temperature (float, optional): Temperature to use inside the
+            softmax for the out-to-loss function. Defaults to 1.
+        """
+        super().__init__()
+        self.softmax = ch.nn.Softmax(-1)
+        self.loss_temperature = temperature
+
+    @staticmethod
+    def get_output(model,
+                   weights: Iterable[Tensor],
+                   buffers: Iterable[Tensor],
+                   c: int,
+                   input_id: Tensor,
+                   token_type_id: Tensor,
+                   attention_mask: Tensor,
+                   label: Tensor,
+                   ) -> Tensor:
+        """ For a given input :math:`z=(x,)` and model parameters :math:`\\theta`,
+        let :math:`f(x, \\theta)` be the logit vector of the neural network with
+        C number of outputs (e.g., representing C classes). this function
+        implements the model output function as:
+
+        .. math::
+
+            \\f(x, \\theta)
+
+        It uses functional models from torch.func (previously functorch) to make
+        the per-sample gradient computations (much) faster. For more details on
+        what functional models are, and how to use them, please refer to
+        https://pytorch.org/docs/stable/func.html and
+        https://pytorch.org/functorch/stable/notebooks/per_sample_grads.html.
+
+        Args:
+            model (torch.nn.Module):
+                torch model
+            weights (Iterable[Tensor]):
+                functorch model weights
+            buffers (Iterable[Tensor]):
+                functorch model buffers
+            image (Tensor):
+                input image, should not have batch dimension
+            label (Tensor):
+                input label, should not have batch dimension. Is unused in this computation.
+
+        Returns:
+            Tensor:
+                model output for the given image :math:`x` and
+                weights & buffers :math:`\\theta`.
+        """
+        logits = ch.func.functional_call(model,
+                            (weights, buffers),
+                            args=(input_id.unsqueeze(0),
+                                token_type_id.unsqueeze(0),
+                                attention_mask.unsqueeze(0)))#[0][:,c].squeeze()
+        #print(logits[0][:,c].squeeze().dtype)
+        return logits[0][:,c].squeeze()
+    
+    def get_out_to_loss_grad(self, model, weights, buffers, batch: Iterable[Tensor]) -> Tensor:
+        """ Computes the (reweighting term Q in the paper)
+
+        Args:
+            model (torch.nn.Module):
+                torch model
+            weights (Iterable[Tensor]):
+                functorch model weights
+            buffers (Iterable[Tensor]):
+                functorch model buffers
+            batch (Iterable[Tensor]):
+                input batch
+
+        Returns:
+            Tensor:
+                out-to-loss (reweighting term) for the input batch
+        """
+        images, labels = batch
+        raise NotImplementedError('get_out_to_loss_grad not implemented for trNTK task; no Q matrix equivalent')
+        #warning, this is nonsensical for the pNTK. 
+        #logits = ch.func.functional_call(model, (weights, buffers), images)
+        # here we are directly implementing the gradient instead of relying on autodiff to do
+        # that for us
+        #ps = self.softmax(logits / self.loss_temperature)[ch.arange(logits.size(0)), labels]
+        #return (1 - ps).clone().detach().unsqueeze(-1)
+    
+
 TASK_TO_MODELOUT = {
     'trNTK':trNTKModelOutput,
     'pNTK':pNTKModelOutput,
+    'text_trNTK':TexttrNTKModelOutput,
+    'text_pNTK':TextpNTKModelOutput,
     'image_classification': ImageClassificationModelOutput,
     'clip': CLIPModelOutput,
     'text_classification': TextClassificationModelOutput,

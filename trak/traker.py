@@ -1,4 +1,4 @@
-from .modelout_functions import AbstractModelOutput, TASK_TO_MODELOUT, pNTKModelOutput, trNTKModelOutput
+from .modelout_functions import AbstractModelOutput, TASK_TO_MODELOUT, pNTKModelOutput, trNTKModelOutput, TextpNTKModelOutput, TexttrNTKModelOutput
 from .projectors import ProjectionType, AbstractProjector, CudaProjector, BasicProjector
 from .gradient_computers import FunctionalGradientComputer,\
                                 AbstractGradientComputer
@@ -96,6 +96,10 @@ class TRAKer():
 
         self.model = model
         self.task = task
+        if (self.task == 'trNTK' or self.task == 'text_trNTK') and (num_classes is None):
+            raise AttributeError('must specify num_classes for modeloutput task trNTK')
+        if (self.task != 'trNTK' and self.task != 'text_trNTK') and not(num_classes is None):
+            raise AttributeError(f'num_classes should only be specified for task trNTK, but task={task}')
         self.train_set_size = train_set_size
         self.device = device
         self.dtype = ch.float16 if use_half_precision else ch.float32
@@ -168,6 +172,8 @@ class TRAKer():
         else:
             self.proj_dim = proj_dim
             try:
+                #if self.task=='text_trNTK' or self.task=='text_pNTK':
+                #    raise AttributeError("Seems like a bug with text-integer emeddings and cuda projector, defaulting to basic.")
                 import fast_jl
                 test_gradient = ch.ones(1, self.num_params).cuda()
                 num_sms = ch.cuda.get_device_properties('cuda').multi_processor_count
@@ -267,8 +273,8 @@ class TRAKer():
             self.logger.debug('All samples in batch already featurized.')
             return 0
         
-        if isinstance(self.task,trNTKModelOutput):
-            for c in range(batch[0].shape[1]): #number of classes
+        if isinstance(self.task,(trNTKModelOutput,TexttrNTKModelOutput)):
+            for c in range(self.num_classes): 
                 grads = self.gradient_computer.compute_per_sample_grad(batch,c)
                 grads = self.projector.project(grads, model_id=self.saver.current_model_id)
                 grads /= self.normalize_factor
@@ -280,7 +286,7 @@ class TRAKer():
             grads /= self.normalize_factor
             self.saver.current_store['grads'][inds] = grads.to(self.dtype).cpu().clone().detach()
         
-        if not(isinstance(self.task, (pNTKModelOutput,trNTKModelOutput))): #TODO: need this logic working.
+        if not(isinstance(self.task, (pNTKModelOutput,trNTKModelOutput,TexttrNTKModelOutput,TextpNTKModelOutput))): #TODO: need this logic working.
             loss_grads = self.gradient_computer.compute_loss_grad(batch)
             self.saver.current_store['out_to_loss'][inds] = loss_grads.to(self.dtype).cpu().clone().detach()
 

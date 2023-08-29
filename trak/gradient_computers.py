@@ -81,7 +81,7 @@ class FunctionalGradientComputer(AbstractGradientComputer):
         self.func_weights = dict(model.named_parameters())
         self.func_buffers = dict(model.named_buffers())
 
-    def compute_per_sample_grad(self, batch: Iterable[Tensor], c: Optional[int]) -> Tensor:
+    def compute_per_sample_grad(self, batch: Iterable[Tensor], c: Optional[int] = None) -> Tensor:
         """ Uses functorch's :code:`vmap` (see
         https://pytorch.org/functorch/stable/generated/functorch.vmap.html#functorch.vmap
         for more details) to vectorize the computations of per-sample gradients.
@@ -121,7 +121,7 @@ class FunctionalGradientComputer(AbstractGradientComputer):
             grads_loss = torch.func.grad(self.modelout_fn.get_output, has_aux=False, argnums=1) #index into class c.
             # map over batch dimensions (hence 0 for each batch dimension, and None for model params)
             grads = torch.empty(size=(batch[0].shape[0], self.num_params),
-                                dtype=batch[0].dtype,
+                                dtype=ch.float32, #TODO: this should probably be inherited from TRAKer. 
                                 device=batch[0].device)
 
             vectorize(torch.func.vmap(grads_loss,
