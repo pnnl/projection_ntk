@@ -1,9 +1,19 @@
-[![arXiv](https://img.shields.io/badge/arXiv-2303.14186-b31b1b.svg?style=flat-square)](XXX)
+[![arXiv](https://img.shields.io/badge/arXiv-2305.14585-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2305.14585)
+
+# Disclaimer
+
+This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the Department of Energy (DOE). All rights in the computer software are reserved by DOE on behalf of the United States Government and the Contractor as provided in the Contract. 
+
+This material was prepared as an account of work sponsored by an agency of the United States Government. Neither the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness or any information, apparatus, product, software, or process disclosed, or represents that its use would not infringe privately owned rights.
+
+Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement recommendation, or favoring by the United States Government or any agency thereof, or Battelle Memorial Institute. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.
+
+PACIFIC NORTHWEST NATIONAL LABORATORY operated by BATTELLE for the UNITED STATES DEPARTMENT OF ENERGY under Contract DE-AC05-76RL01830
 
 
 # Projection NTK: a fork of TRAK
 
-In our [paper](XXX), we introduce projection varients of approximate neural tangent kernel (NTK).
+In our [paper](https://arxiv.org/abs/2305.14585), we introduce projection varients of approximate neural tangent kernel (NTK).
 These NTK are computed from Jacobians of neural network models. They benefit from the insight made
 in Park 2023 (TRAK), long vectors will retain most of their relative information when projected down
 to a smaller feature dimension. We can utilize this to reduce the scaling with number of parameters
@@ -13,7 +23,7 @@ we could calculate an approximate NTK called the projection trace-NTK, that was 
 model for the original neural network and whose residuals with respect to the full trace-NTK fell away
 exponentially, see figure below.
 
-![Main figure](/docs/assets/residualdecay.png)
+![Main figure](/docs/assets/ResNet18_residuals.png)
 
 The point of this is that projections enable calculating approximate NTK for large models and large datasets
 faster than ever before; with a few tweaks to the underlying TRAK module we can enable PyTorch users to 
@@ -45,8 +55,8 @@ checkpoint = torch.load('./checkpoint.pt')
 train_and_test_loader = ...
 Ndata = len(train_and_test_loader)
 
-#set the projection dimension. we used K=10240 for a ResNet18 with ABC number of model
-#parameters. There is assumedly a computation/accuracy tradeoff for K, the probably
+#set the projection dimension. we used K=10240 for a ResNet18 with 11e6 model
+#parameters. There is assumedly a computation/accuracy tradeoff for K, that probably
 #is in some ratio to number of model parameters. 
 K=10_240
 
@@ -112,5 +122,5 @@ pip install traker[fast]=0.2.1
 
 git clone <This repo>
 cd <./this/repo>
-pip install -r ./
+pip install -e ./
 ```
