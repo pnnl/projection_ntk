@@ -77,7 +77,7 @@ NTK = torch.matmul(A,A.T) #NTK has dimensions Ndata x Ndata
 
 
 ## Examples
-You can find several end-to-end examples in the `examples/` directory.
+You can find an end-to-end examples in the `projectionNTK_examples/` directory, including how to calcualte the top-5 most similar images.
 
 ## Citation
 If you use the capabilities developed to compute approximate NTK, consider citing our work!
