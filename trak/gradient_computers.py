@@ -104,7 +104,7 @@ class FunctionalGradientComputer(AbstractGradientComputer):
             grads_loss = torch.func.grad(self.modelout_fn.get_output, has_aux=False, argnums=1)
             # map over batch dimensions (hence 0 for each batch dimension, and None for model params)
             grads = torch.empty(size=(batch[0].shape[0], self.num_params),
-                                dtype=batch[0].dtype,
+                                dtype=ch.float32,
                                 device=batch[0].device)
 
             vectorize(torch.func.vmap(grads_loss,

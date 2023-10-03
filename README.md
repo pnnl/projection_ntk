@@ -1,75 +1,95 @@
-[![arXiv](https://img.shields.io/badge/arXiv-2303.14186-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2303.14186)
-[![PyPI version](https://badge.fury.io/py/traker.svg)](https://badge.fury.io/py/traker)
-[![Documentation Status](https://readthedocs.org/projects/trak/badge/?version=latest)](https://trak.readthedocs.io/en/latest/?badge=latest)
+[![arXiv](https://img.shields.io/badge/arXiv-2303.14186-b31b1b.svg?style=flat-square)](XXX)
 
-# TRAK: Attributing Model Behavior at Scale
 
-[[docs & tutorials]](https://trak.readthedocs.io/en/latest/)
-[[blog post]](https://gradientscience.org/trak/)
-[[website]](https://trak.csail.mit.edu)
+# Projection NTK: a fork of TRAK
 
-In our [paper](https://arxiv.org/abs/2303.14186), we introduce a new data attribution method called `TRAK` (Tracing with the
-Randomly-Projected After Kernel). Using `TRAK`, you can make  accurate
-counterfactual predictions (e.g., answers to questions of the form “what would
-happen to this prediction if these examples are removed from the training set?").
-Computing  data attribution with  TRAK is 2-3 orders of magnitude cheaper than
-comparably effective methods, e.g., see our evaluation on:
+In our [paper](XXX), we introduce projection varients of approximate neural tangent kernel (NTK).
+These NTK are computed from Jacobians of neural network models. They benefit from the insight made
+in Park 2023 (TRAK), long vectors will retain most of their relative information when projected down
+to a smaller feature dimension. We can utilize this to reduce the scaling with number of parameters
+in NTK computation, and infact, can tune the computational scaling by choosing the projection dimension.
+We observed that for a 1000x reduction via random projection in number of model parameters on ResNet18,
+we could calculate an approximate NTK called the projection trace-NTK, that was promising as a surrogate
+model for the original neural network and whose residuals with respect to the full trace-NTK fell away
+exponentially, see figure below.
 
-![Main figure](/docs/assets/main_figure.png)
+![Main figure](/docs/assets/residualdecay.png)
+
+The point of this is that projections enable calculating approximate NTK for large models and large datasets
+faster than ever before; with a few tweaks to the underlying TRAK module we can enable PyTorch users to 
+evaluate how close their own neural network models are to kernel machines. In addition, the speed and memory
+savings should enable exciting new applciations for NTK research. One we demonstrate in the paper is finding
+the top 5-most similar images for any test image, see below and in paper for more examples.
+
+![Second figure](/docs/assets/5mostsimilar.png)
+
+We can not overstate how much this work was enabled by TRAK. The goal for this repository is to freeze
+a copy to make our work reproducible, but ultimately, we would like to merge our changes back into TRAK. 
 
 ## Usage
 
-- [quickstart (tutorial & notebook)](https://trak.readthedocs.io/en/latest/quickstart.html)
-- [pre-computed TRAK scores for CIFAR-10 (Google Colab notebook)](https://colab.research.google.com/drive/1Mlpzno97qpI3UC1jpOATXEHPD-lzn9Wg?usp=sharing)
-
-Check [our docs](https://trak.readthedocs.io/en/latest/) for more detailed examples and
-tutorials on how to use `TRAK`.  Below, we provide a brief blueprint of using `TRAK`'s API to compute attribution scores.
+We provide a rough sketch of usage to calculate the projection-trNTK of a neural network model on Cifar10.
 
 ### Make a `TRAKer` instance
 
 ```python
 from trak import TRAKer
 
-model, checkpoints = ...
-train_loader = ...
+#PyTorch nn.Module object
+model = ...
 
-traker = TRAKer(model=model, task='image_classification', train_set_size=...)
+#this is a common state dictionary file for model
+checkpoint = torch.load('./checkpoint.pt') 
+
+#we want a dataloader object that combines BOTH train and test data, with shuffle=False
+train_and_test_loader = ...
+Ndata = len(train_and_test_loader)
+
+#set the projection dimension. we used K=10240 for a ResNet18 with ABC number of model
+#parameters. There is assumedly a computation/accuracy tradeoff for K, the probably
+#is in some ratio to number of model parameters. 
+K=10_240
+
+#currently hacky-- if the combined size of example in train_and_test_loader = ABC then:
+traker = TRAKer(model=model, task='pNTK', train_set_size=Ndata,projection_dim=K)
 ```
 
-### Compute `TRAK` features on training data
+### Compute Jacobians of neural network model
 
 ```python
-for model_id, checkpoint in enumerate(checkpoints):
-  traker.load_checkpoint(checkpoint, model_id=model_id)
-  for batch in loader_train:
-      # batch should be a tuple of inputs and labels
-      traker.featurize(batch=batch, ...)
-traker.finalize_features()
+
+traker.load_checkpoint(checkpoint, model_id=0)
+for batch in train_and_test_loader:
+  # batch should be a tuple of inputs and labels
+  traker.featurize(batch=batch, ...)
+#this saved a memmap object of the projected gradients to disk.
 ```
 
-### Compute `TRAK` scores for target examples
+### Compute NTK via Jacobian Contraction
 
 ```python
-targets_loader = ...
 
-for model_id, checkpoint in enumerate(checkpoints):
-  traker.start_scoring_checkpoint(checkpoint,
-                                  model_id=model_id,
-                                  exp_name='test',
-                                  num_targets=...)
-  for batch in targets_loader:
-    traker.score(batch=batch, ...)
-
-scores = traker.finalize_scores(exp_name='test')
+A = torch.from_numpy(np.load('./path/to/0/grads.memmap')).cuda()
+NTK = torch.matmul(A,A.T) #NTK has dimensions Ndata x Ndata
 ```
-Check out the [quickstart](https://trak.readthedocs.io/en/latest/quickstart.html) for a complete ready-to-run example notebook.
 
 
 ## Examples
 You can find several end-to-end examples in the `examples/` directory.
 
 ## Citation
-If you use this code in your work, please cite using the following BibTeX entry:
+If you use the capabilities developed to compute approximate NTK, consider citing our work!
+```
+@misc{engel2023robust,
+      title={Robust Explanations for Deep Neural Networks via Pseudo Neural Tangent Kernel Surrogate Models}, 
+      author={Andrew Engel and Zhichao Wang and Natalie S. Frank and Ioana Dumitriu and Sutanay Choudhury and Anand Sarwate and Tony Chiang},
+      year={2023},
+      eprint={2305.14585},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
+You should also cite the original TRAK repository:
 ```
 @inproceedings{park2023trak,
   title = {TRAK: Attributing Model Behavior at Scale},
@@ -81,25 +101,16 @@ If you use this code in your work, please cite using the following BibTeX entry:
 
 ## Installation
 
-To install the version of our package which contains a fast, custom `CUDA`
-kernel for the JL projection step, use
-```bash
-pip install traker[fast]
+We advise installing TRAK V0.2.1, then clone our repository and install locally.
+
+To install TRAK with `CUDA` kernel for fast gradient projection, follow the installation instructions at
+[installation FAQs](https://trak.readthedocs.io/en/latest/install.html). You will need compatible versions
+of `gcc` and `CUDA toolkit`. 
+
 ```
-You will need compatible versions of `gcc` and `CUDA toolkit` to install it. See
-the [installation FAQs](https://trak.readthedocs.io/en/latest/install.html) for tips
-regarding this. To install the basic version of our package that requires no
-compilation, use
-```bash
-pip install traker
+pip install traker[fast]=0.2.1
+
+git clone <This repo>
+cd <./this/repo>
+pip install -r ./
 ```
-
-## Questions?
-
-Please send an email to trak@mit.edu
-
-## Maintainers
-
-[Kristian Georgiev](https://twitter.com/kris_georgiev1)<br>
-[Andrew Ilyas](https://twitter.com/andrew_ilyas)<br>
-[Sung Min Park](https://twitter.com/smsampark)

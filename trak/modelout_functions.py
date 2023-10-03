@@ -640,8 +640,10 @@ class TextpNTKModelOutput(AbstractModelOutput):
         logits = ch.func.functional_call(model,
                                     (weights, buffers),
                                     args=(input_id.unsqueeze(0),
+                                          attention_mask.unsqueeze(0),
                                         token_type_id.unsqueeze(0),
-                                        attention_mask.unsqueeze(0)))[0][0]
+                                        ))[0][0]
+        #print(logits)
         return logits.sum()
     
     def get_out_to_loss_grad(self, model, weights, buffers, batch: Iterable[Tensor]) -> Tensor:
@@ -736,8 +738,8 @@ class TexttrNTKModelOutput(AbstractModelOutput):
         logits = ch.func.functional_call(model,
                             (weights, buffers),
                             args=(input_id.unsqueeze(0),
-                                token_type_id.unsqueeze(0),
-                                attention_mask.unsqueeze(0)))#[0][:,c].squeeze()
+                                attention_mask.unsqueeze(0),
+                                token_type_id.unsqueeze(0),))#[0][:,c].squeeze()
         #print(logits[0][:,c].squeeze().dtype)
         return logits[0][:,c].squeeze()
     
