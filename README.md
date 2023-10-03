@@ -23,7 +23,7 @@ we could calculate an approximate NTK called the projection trace-NTK, that was 
 model for the original neural network and whose residuals with respect to the full trace-NTK fell away
 exponentially, see figure below.
 
-![Main figure](/docs/assets/ResNet18_residuals.png)
+![Main figure](/docs/TRAKassets/ResNet18_residuals.png)
 
 The point of this is that projections enable calculating approximate NTK for large models and large datasets
 faster than ever before; with a few tweaks to the underlying TRAK module we can enable PyTorch users to 
@@ -31,7 +31,7 @@ evaluate how close their own neural network models are to kernel machines. In ad
 savings should enable exciting new applciations for NTK research. One we demonstrate in the paper is finding
 the top 5-most similar images for any test image, see below and in paper for more examples.
 
-![Second figure](/docs/assets/5mostsimilar.png)
+![Second figure](/docs/TRAKassets/5mostsimilar.png)
 
 We can not overstate how much this work was enabled by TRAK. The goal for this repository is to freeze
 a copy to make our work reproducible, but ultimately, we would like to merge our changes back into TRAK. 
