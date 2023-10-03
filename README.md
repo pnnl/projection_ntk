@@ -14,27 +14,19 @@ PACIFIC NORTHWEST NATIONAL LABORATORY operated by BATTELLE for the UNITED STATES
 # Projection NTK: a fork of TRAK
 
 In our [paper](https://arxiv.org/abs/2305.14585), we introduce projection varients of approximate neural tangent kernel (NTK).
-These NTK are computed from Jacobians of neural network models. They benefit from the insight made
-in Park 2023 (TRAK), long vectors will retain most of their relative information when projected down
-to a smaller feature dimension. We can utilize this to reduce the scaling with number of parameters
-in NTK computation, and infact, can tune the computational scaling by choosing the projection dimension.
-We observed that for a 1000x reduction via random projection in number of model parameters on ResNet18,
-we could calculate an approximate NTK called the projection trace-NTK, that was promising as a surrogate
-model for the original neural network and whose residuals with respect to the full trace-NTK fell away
-exponentially, see figure below.
+These NTK are computed from inner products of Jacobians of neural network models. They benefit from the insight made in Park 2023 (TRAK), long vectors will retain most of their relative information when projected down to a smaller feature dimension. We can utilize this to reduce the scaling with number of parameters in NTK computation, and infact, can tune the computational scaling by choosing the projection dimension. We observed that for a 1000x reduction via random projection in number of model parameters on ResNet18, we could calculate an approximate NTK called the projection trace-NTK, that was promising as a surrogate model for the original neural network and whose residuals with respect to the full trace-NTK fell away exponentially, see figure below.
 
 ![Residuals figure](./TRAKdocs/assets/ResNet18_residuals.png)
 
-The point of this is that projections enable calculating approximate NTK for large models and large datasets
-faster than ever before; with a few tweaks to the underlying TRAK module we can enable PyTorch users to 
+These projections enable calculating approximate NTK for large models and large datasets
+faster than ever before; with a few tweaks to the underlying TRAK module enables PyTorch users to 
 evaluate how close their own neural network models are to kernel machines. In addition, the speed and memory
-savings should enable exciting new applciations for NTK research. One we demonstrate in the paper is finding
-the top 5-most similar images for any test image, see below and in paper for more examples.
+savings should open-up exciting new applciations for NTK research. One application we demonstrate is to find
+the top most similar images for any test image, see below and in paper for more examples.
 
 ![Most Similar figure](./TRAKdocs/assets/5mostsimilar.png)
 
-We can not overstate how much this work was enabled by TRAK. The goal for this repository is to freeze
-a copy to make our work reproducible, but ultimately, we would like to merge our changes back into TRAK. 
+Much credit is owed to the original TRAK repostory. The goal for this repository is to make our work reproducible, we would like to merge the capabilities enabled by our changes back into TRAK. Please see [TRAK paper](https://arxiv.org/abs/2303.14186) for more details. 
 
 ## Usage
 
@@ -53,7 +45,7 @@ checkpoint = torch.load('./checkpoint.pt')
 
 #we want a dataloader object that combines BOTH train and test data, with shuffle=False
 train_and_test_loader = ...
-Ndata = len(train_and_test_loader)
+Ndata = len(train_and_test_loader.dataset)
 
 #set the projection dimension. we used K=10240 for a ResNet18 with 11e6 model
 #parameters. There is assumedly a computation/accuracy tradeoff for K, that probably
@@ -61,7 +53,7 @@ Ndata = len(train_and_test_loader)
 K=10_240
 
 #currently hacky-- if the combined size of example in train_and_test_loader = ABC then:
-traker = TRAKer(model=model, task='pNTK', train_set_size=Ndata,projection_dim=K)
+traker = TRAKer(model=model, task='pNTK', train_set_size=Ndata, projection_dim=K)
 ```
 
 ### Compute Jacobians of neural network model
