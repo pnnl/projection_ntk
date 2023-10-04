@@ -71,7 +71,7 @@ To install TRAK with `CUDA` kernel for fast gradient projection, follow the inst
 of `gcc` and `CUDA toolkit`. 
 
 ```
-pip install traker[fast]=0.2.1
+pip install traker[fast]==0.2.1
 
 git clone <this_repo>
 cd <./this_repo>
