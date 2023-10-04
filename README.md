@@ -62,9 +62,32 @@ A = torch.from_numpy(np.load('./path/to/0/grads.memmap')).cuda()
 NTK = torch.matmul(A,A.T) #NTK has dimensions Ndata x Ndata
 ```
 
+## Installation
+
+We advise installing TRAK V0.2.1, then clone our repository and install locally.
+
+To install TRAK with `CUDA` kernel for fast gradient projection, follow the installation instructions at
+[installation FAQs](https://trak.readthedocs.io/en/latest/install.html). You will need compatible versions
+of `gcc` and `CUDA toolkit`. 
+
+```
+pip install traker[fast]=0.2.1
+
+git clone <this_repo>
+cd <./this_repo>
+pip install -e ./
+```
+We have additional dependecies:
+```
+pip install einops
+```
+specific experiments may also utilize additional depencies; but this should allow users to begin with the ./projectionNTK_examples/
 
 ## Examples
-You can find an end-to-end examples in the `projectionNTK_examples/` directory, including how to calcualte the top-5 most similar images.
+You can find an end-to-end example in the `projectionNTK_examples/` directory, including how to calcualte the top-5 most similar images.
+Additional notebooks and scripts describing our experiments are available in ./experiments and ./scripts
+Due to github large file size limitations we do not provide pre-computed NTK; we're actively looking for a solution that would allow
+users to download the objects we computed. NTK would be 14.4GB for Cifar10.
 
 ## Credit
 Much credit is owed to the original TRAK repostory, of which this repo is a fork. The goal for this repository is to make our work reproducible, we would like to merge the capabilities enabled by our changes back into TRAK. Please see [TRAK paper](https://arxiv.org/abs/2303.14186) for more details. 
@@ -89,22 +112,6 @@ You should also cite the original TRAK repository:
   booktitle = {International Conference on Machine Learning (ICML)},
   year = {2023}
 }
-```
-
-## Installation
-
-We advise installing TRAK V0.2.1, then clone our repository and install locally.
-
-To install TRAK with `CUDA` kernel for fast gradient projection, follow the installation instructions at
-[installation FAQs](https://trak.readthedocs.io/en/latest/install.html). You will need compatible versions
-of `gcc` and `CUDA toolkit`. 
-
-```
-pip install traker[fast]=0.2.1
-
-git clone <This repo>
-cd <./this/repo>
-pip install -e ./
 ```
 
 # Disclaimer
