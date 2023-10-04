@@ -64,7 +64,8 @@ NTK = torch.matmul(A,A.T) #NTK has dimensions Ndata x Ndata
 
 ## Installation
 
-We advise installing TRAK V0.2.1, then clone our repository and install locally.
+We advise installing TRAK V0.2.1, then clone our repository and install locally. This is because TRAK
+compiles fast_jl upon installation which allows us to use efficient GPU projection.
 
 To install TRAK with `CUDA` kernel for fast gradient projection, follow the installation instructions at
 [installation FAQs](https://trak.readthedocs.io/en/latest/install.html). You will need compatible versions
@@ -77,11 +78,16 @@ git clone <this_repo>
 cd <./this_repo>
 pip install -e ./
 ```
-We have additional dependecies:
+You can then check that your python path is pointing at this version of trak rather than the original with
+```
+import trak
+print(trak.__file__)
+```
+This repository has an additional dependency:
 ```
 pip install einops
 ```
-specific experiments may also utilize additional depencies; but this should allow users to begin with the ./projectionNTK_examples/
+specific experiments may also utilize additional depencies; but einops should allow users to begin with the ./projectionNTK_examples/
 
 ## Examples
 You can find an end-to-end example in the `projectionNTK_examples/` directory, including how to calcualte the top-5 most similar images.
