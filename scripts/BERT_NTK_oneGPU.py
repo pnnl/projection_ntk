@@ -1,4 +1,7 @@
-#This script is intended to be run once for each layer on each GPU. That way, each layer can go at it own pace individually of all the other layers.
+#This script is intended to be run once for each layer on each GPU. 
+#That way, each layer can go at its own pace individually of all the other layers.
+
+##NOTE this ends up being terrible inefficient compared to calculating the NTK for all params
 
 import sys
 

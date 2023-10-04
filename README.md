@@ -1,17 +1,6 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2305.14585-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2305.14585)
 
-# Disclaimer
-
-This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the Department of Energy (DOE). All rights in the computer software are reserved by DOE on behalf of the United States Government and the Contractor as provided in the Contract. 
-
-This material was prepared as an account of work sponsored by an agency of the United States Government. Neither the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness or any information, apparatus, product, software, or process disclosed, or represents that its use would not infringe privately owned rights.
-
-Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement recommendation, or favoring by the United States Government or any agency thereof, or Battelle Memorial Institute. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.
-
-PACIFIC NORTHWEST NATIONAL LABORATORY operated by BATTELLE for the UNITED STATES DEPARTMENT OF ENERGY under Contract DE-AC05-76RL01830
-
-
-# Projection NTK: a fork of TRAK
+# Projection NTK
 
 In our [paper](https://arxiv.org/abs/2305.14585), we introduce projection varients of approximate neural tangent kernel (NTK).
 These NTK are computed from inner products of Jacobians of neural network models. They benefit from the insight made in Park 2023 (TRAK), long vectors will retain most of their relative information when projected down to a smaller feature dimension. We can utilize this to reduce the scaling with number of parameters in NTK computation, and infact, can tune the computational scaling by choosing the projection dimension. We observed that for a 1000x reduction via random projection in number of model parameters on ResNet18, we could calculate an approximate NTK called the projection trace-NTK, that was promising as a surrogate model for the original neural network and whose residuals with respect to the full trace-NTK fell away exponentially, see figure below.
@@ -25,8 +14,6 @@ savings should open-up exciting new applciations for NTK research. One applicati
 the top most similar images for any test image, see below and in paper for more examples.
 
 ![Most Similar figure](./TRAKdocs/assets/5mostsimilar.png)
-
-Much credit is owed to the original TRAK repostory. The goal for this repository is to make our work reproducible, we would like to merge the capabilities enabled by our changes back into TRAK. Please see [TRAK paper](https://arxiv.org/abs/2303.14186) for more details. 
 
 ## Usage
 
@@ -79,6 +66,9 @@ NTK = torch.matmul(A,A.T) #NTK has dimensions Ndata x Ndata
 ## Examples
 You can find an end-to-end examples in the `projectionNTK_examples/` directory, including how to calcualte the top-5 most similar images.
 
+## Credit
+Much credit is owed to the original TRAK repostory, of which this repo is a fork. The goal for this repository is to make our work reproducible, we would like to merge the capabilities enabled by our changes back into TRAK. Please see [TRAK paper](https://arxiv.org/abs/2303.14186) for more details. 
+
 ## Citation
 If you use the capabilities developed to compute approximate NTK, consider citing our work!
 ```
@@ -116,3 +106,13 @@ git clone <This repo>
 cd <./this/repo>
 pip install -e ./
 ```
+
+# Disclaimer
+
+This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the Department of Energy (DOE). All rights in the computer software are reserved by DOE on behalf of the United States Government and the Contractor as provided in the Contract. 
+
+This material was prepared as an account of work sponsored by an agency of the United States Government. Neither the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness or any information, apparatus, product, software, or process disclosed, or represents that its use would not infringe privately owned rights.
+
+Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement recommendation, or favoring by the United States Government or any agency thereof, or Battelle Memorial Institute. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.
+
+PACIFIC NORTHWEST NATIONAL LABORATORY operated by BATTELLE for the UNITED STATES DEPARTMENT OF ENERGY under Contract DE-AC05-76RL01830
